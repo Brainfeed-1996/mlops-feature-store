@@ -1,0 +1,60 @@
+# mlops-feature-store
+
+A **Feast-like** (but deliberately simplified) feature store built with:
+
+- **FastAPI** (serving + admin API)
+- **PostgreSQL** (offline store)
+- **Redis** (online store)
+- **YAML registry** (feature definitions)
+
+This repo is designed as a high-complexity reference project: clean layering, async IO, Docker Compose, and a small demo pipeline.
+
+**Author: Olivier Robert-Duboille**
+
+## What you get
+
+- Registry-driven `FeatureView` definitions (entities, features, TTL, source table)
+- Offline retrieval from Postgres (point-in-time-ish helper query patterns)
+- Online retrieval from Redis (per-entity keying)
+- Materialization job: offline → online
+- FastAPI endpoints:
+  - `GET /healthz`
+  - `POST /registry/reload`
+  - `POST /materialize/{feature_view}`
+  - `GET /online/{feature_view}/{entity_id}`
+
+## Quickstart (Docker)
+
+```bash
+docker compose up --build
+```
+
+Seed demo data:
+
+```bash
+python -m venv .venv && . .venv/Scripts/activate
+pip install -e .
+python scripts/demo_ingest.py
+```
+
+Query online store:
+
+```bash
+curl http://localhost:8000/online/user_features/123
+```
+
+## Design notes
+
+This is **not** a production feature store.
+It is a learning-oriented implementation inspired by Feast concepts:
+
+- registry (defs)
+- offline store
+- online store
+- materialization
+
+See `registry/feature_views.yaml`.
+
+## License
+
+MIT

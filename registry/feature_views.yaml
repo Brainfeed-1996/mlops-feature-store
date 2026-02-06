@@ -1,0 +1,17 @@
+feature_views:
+  - name: user_features
+    entity:
+      name: user_id
+      value_type: int
+    ttl_seconds: 86400
+    offline:
+      table: user_features
+      timestamp_column: event_ts
+      entity_column: user_id
+    features:
+      - name: country
+        value_type: str
+      - name: age
+        value_type: int
+      - name: purchases_7d
+        value_type: float
