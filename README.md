@@ -11,6 +11,12 @@ This repo is designed as a high-complexity reference project: clean layering, as
 
 **Author: Olivier Robert-Duboille**
 
+## Notebooks (added)
+
+These notebooks add an **offline Parquet-based** pipeline (useful even if you run the full Postgres/Redis stack):
+- `notebooks/01_offline_feature_generation.ipynb` — generate raw events + compute daily features (DuckDB)
+- `notebooks/02_training_with_features.ipynb` — train a baseline model consuming materialized features
+
 ## What you get
 
 - Registry-driven `FeatureView` definitions (entities, features, TTL, source table)
