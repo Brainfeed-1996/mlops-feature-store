@@ -13,9 +13,17 @@ This repo is designed as a high-complexity reference project: clean layering, as
 
 ## Notebooks (added)
 
-These notebooks add an **offline Parquet-based** pipeline (useful even if you run the full Postgres/Redis stack):
+These notebooks add an **offline Parquet/CSV-based** pipeline (useful even if you run the full Postgres/Redis stack):
 - `notebooks/01_offline_feature_generation.ipynb` — generate raw events + compute daily features (DuckDB)
 - `notebooks/02_training_with_features.ipynb` — train a baseline model consuming materialized features
+- `notebooks/03_data_quality_and_leakage_checks.ipynb` — quality + drift checks (executed outputs saved)
+
+## CLI (quality)
+Generate a quality report from a feature table:
+```bash
+pip install -e .[quality]
+mfs quality --input registry/offline/features_daily.csv --out out/quality_report.json
+```
 
 ## What you get
 
