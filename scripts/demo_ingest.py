@@ -14,7 +14,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 
-DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/feature_store"
+from feature_store_api.core.config import settings
+
+DB_URL = settings.database_url
 
 
 async def main() -> None:

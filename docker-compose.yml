@@ -21,6 +21,7 @@ services:
     environment:
       FEATURE_STORE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/feature_store
       FEATURE_STORE_REDIS_URL: redis://redis:6379/0
+      FEATURE_STORE_ONLINE_BACKEND: redis
       FEATURE_STORE_REGISTRY_PATH: /app/registry/feature_views.yaml
     ports:
       - "8000:8000"

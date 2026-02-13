@@ -28,12 +28,14 @@ mfs quality --input registry/offline/features_daily.csv --out out/quality_report
 ## What you get
 
 - Registry-driven `FeatureView` definitions (entities, features, TTL, source table)
-- Offline retrieval from Postgres (point-in-time-ish helper query patterns)
-- Online retrieval from Redis (per-entity keying)
+- Offline store: **Postgres or SQLite**
+- Online store: **Redis** (or in-memory fallback)
+- Offline retrieval helper: "latest row per entity" (simplified)
 - Materialization job: offline → online
 - FastAPI endpoints:
   - `GET /healthz`
   - `POST /registry/reload`
+  - `POST /offline/ingest/{feature_view}`
   - `POST /materialize/{feature_view}`
   - `GET /online/{feature_view}/{entity_id}`
 
@@ -54,6 +56,40 @@ python scripts/demo_ingest.py
 Query online store:
 
 ```bash
+curl http://localhost:8000/online/user_features/123
+```
+
+## Quickstart (no Docker: SQLite + in-memory online store)
+
+```bash
+python -m venv .venv && . .venv/Scripts/activate
+pip install -e .
+set FEATURE_STORE_DATABASE_URL=sqlite+aiosqlite:///./feature_store.db
+set FEATURE_STORE_ONLINE_BACKEND=memory
+uvicorn feature_store_api.main:app --reload
+```
+
+Create a minimal SQLite table (one-time):
+
+```sql
+CREATE TABLE user_features (
+  user_id INTEGER NOT NULL,
+  event_ts TEXT NOT NULL,
+  country TEXT,
+  age INTEGER,
+  purchases_7d REAL,
+  PRIMARY KEY (user_id, event_ts)
+);
+```
+
+Ingest + materialize + fetch:
+
+```bash
+curl -X POST http://localhost:8000/offline/ingest/user_features \
+  -H "content-type: application/json" \
+  -d '{"rows": [{"user_id": 123, "event_ts": "2026-02-01T00:00:00+00:00", "country": "FR", "age": 29, "purchases_7d": 3.0}]}'
+
+curl -X POST http://localhost:8000/materialize/user_features
 curl http://localhost:8000/online/user_features/123
 ```
 
