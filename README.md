@@ -1,109 +1,243 @@
-# mlops-feature-store
+# MLOps Feature Store (Advanced)
 
-A **Feast-like** (but deliberately simplified) feature store built with:
+Feast-like feature store with advanced capabilities for production ML systems.
 
-- **FastAPI** (serving + admin API)
-- **PostgreSQL** (offline store)
-- **Redis** (online store)
-- **YAML registry** (feature definitions)
+## Features
 
-This repo is designed as a high-complexity reference project: clean layering, async IO, Docker Compose, and a small demo pipeline.
+### Core Features
+- **Feature Views**: Registry-driven definitions (entities, features, TTL, source)
+- **Offline Store**: PostgreSQL or SQLite with async support
+- **Online Store**: Redis with in-memory fallback
+- **Materialization**: Offline to online synchronization
+- **Auto-Registration**: Automatic feature discovery and registration
 
-**Author: Olivier Robert-Duboille**
+### Advanced Features
+- **Streaming Support**: Apache Kafka integration
+- **Point-in-Time Joins**: Historical feature retrieval
+- **Feature Versioning**: Track feature changes over time
+- **Data Quality Checks**: Built-in validation and monitoring
+- **Drift Detection**: Statistical drift detection for features
+- **Monitoring**: Prometheus metrics integration
 
-## Notebooks (added)
+### API Endpoints
 
-These notebooks add an **offline Parquet/CSV-based** pipeline (useful even if you run the full Postgres/Redis stack):
-- `notebooks/01_offline_feature_generation.ipynb` — generate raw events + compute daily features (DuckDB)
-- `notebooks/02_training_with_features.ipynb` — train a baseline model consuming materialized features
-- `notebooks/03_data_quality_and_leakage_checks.ipynb` — quality + drift checks (executed outputs saved)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/healthz` | GET | Health check |
+| `/registry/reload` | POST | Reload registry |
+| `/offline/ingest/{feature_view}` | POST | Ingest feature data |
+| `/offline/query` | POST | Point-in-time query |
+| `/materialize/{feature_view}` | POST | Materialize to online |
+| `/materialize/all` | POST | Materialize all views |
+| `/online/{feature_view}/{entity_id}` | GET | Get online feature |
+| `/online/batch` | POST | Batch online retrieval |
+| `/drift/{feature_view}` | GET | Drift analysis |
+| `/metrics` | GET | Prometheus metrics |
 
-## CLI (quality)
-Generate a quality report from a feature table:
+## Installation
+
 ```bash
-pip install -e .[quality]
-mfs quality --input registry/offline/features_daily.csv --out out/quality_report.json
+# Basic installation
+pip install -e .
+
+# With quality tools
+pip install -e ".[quality]"
+
+# With all extras
+pip install -e ".[dev,quality]"
 ```
 
-## What you get
-
-- Registry-driven `FeatureView` definitions (entities, features, TTL, source table)
-- Offline store: **Postgres or SQLite**
-- Online store: **Redis** (or in-memory fallback)
-- Offline retrieval helper: "latest row per entity" (simplified)
-- Materialization job: offline → online
-- FastAPI endpoints:
-  - `GET /healthz`
-  - `POST /registry/reload`
-  - `POST /offline/ingest/{feature_view}`
-  - `POST /materialize/{feature_view}`
-  - `GET /online/{feature_view}/{entity_id}`
-
-## Quickstart (Docker)
+## Docker Quickstart
 
 ```bash
 docker compose up --build
 ```
 
-Seed demo data:
+## Usage
+
+### CLI Commands
 
 ```bash
-python -m venv .venv && . .venv/Scripts/activate
-pip install -e .
-python scripts/demo_ingest.py
+# Start API server
+mfs serve
+
+# Ingest data
+mfs ingest --view user_features --data data.json
+
+# Materialize features
+mfs materialize --view user_features
+
+# Materialize all
+mfs materialize-all
+
+# Check data quality
+mfs quality --input features.csv --out report.json
+
+# Run drift analysis
+mfs drift --view user_features --reference data.csv
+
+# Auto-register features from directory
+mfs register --path registry/*.yaml
 ```
 
-Query online store:
+### Python API
+
+```python
+from feature_store_api import FeatureStore
+
+# Initialize store
+store = FeatureStore()
+
+# Register feature view
+store.register_view("user_features", "registry/user_features.yaml")
+
+# Ingest features
+store.ingest("user_features", [
+    {"user_id": 123, "event_ts": "2026-02-01T00:00:00", "purchases": 5}
+])
+
+# Point-in-time join
+features = store.get_historical_features(
+    entity_df=entity_df,
+    feature_views=["user_features"],
+    timestamp_col="event_timestamp"
+)
+
+# Materialize to online store
+store.materialize("user_features")
+
+# Retrieve online features
+online = store.get_online("user_features", entity_ids=[123, 456])
+
+# Check drift
+drift = store.analyze_drift("user_features", reference_data)
+```
+
+## Architecture
+
+```
+mlops-feature-store/
+├── src/feature_store_api/
+│   ├── main.py              # FastAPI application
+│   ├── registry.py          # Feature registry
+│   ├── offline/            # Offline store (PostgreSQL)
+│   │   ├── store.py
+│   │   ├── models.py
+│   │   └── queries.py
+│   ├── online/              # Online store (Redis)
+│   │   ├── store.py
+│   │   └── cache.py
+│   ├── materialization/     # Materialization jobs
+│   │   ├── jobs.py
+│   │   └── scheduler.py
+│   ├── streaming/          # Kafka integration
+│   │   ├── consumer.py
+│   │   └── producer.py
+│   ├── monitoring/        # Metrics & drift
+│   │   ├── metrics.py
+│   │   └── drift.py
+│   └── quality/           # Data quality
+│       ├── checks.py
+│       └── reports.py
+├── tests/
+├── registry/              # Feature definitions
+├── notebooks/            # Examples
+└── docker-compose.yml
+```
+
+## Feature Definitions
+
+```yaml
+feature_view: user_features
+entities:
+  - name: user_id
+    dtype: int64
+features:
+  - name: country
+    dtype: string
+  - name: purchases_7d
+    dtype: float64
+  - name: age
+    dtype: int32
+source: user_events
+ttl: 7d
+join_keys:
+  - user_id
+description: User purchasing behavior features
+version: 1
+tags:
+  owner: ml-team
+  priority: high
+```
+
+## Streaming Integration
+
+```python
+from feature_store_api.streaming import KafkaConsumer
+
+# Create consumer
+consumer = KafkaConsumer(
+    topic="user-events",
+    bootstrap_servers="localhost:9092",
+    feature_store=store
+)
+
+# Start consuming
+consumer.start()
+```
+
+## Monitoring
+
+### Prometheus Metrics
 
 ```bash
-curl http://localhost:8000/online/user_features/123
+# Expose metrics
+curl http://localhost:8000/metrics
 ```
 
-## Quickstart (no Docker: SQLite + in-memory online store)
+Available metrics:
+- `feature_store_ingestion_total`
+- `feature_store_materialization_duration_seconds`
+- `feature_store_online_latency_seconds`
+- `feature_store_drift_score`
 
-```bash
-python -m venv .venv && . .venv/Scripts/activate
-pip install -e .
-set FEATURE_STORE_DATABASE_URL=sqlite+aiosqlite:///./feature_store.db
-set FEATURE_STORE_ONLINE_BACKEND=memory
-uvicorn feature_store_api.main:app --reload
+### Drift Detection
+
+```python
+# Calculate drift
+drift_score = store.analyze_drift(
+    "user_features",
+    reference_data=reference_df,
+    method="kl_divergence"
+)
+
+if drift_score > 0.5:
+    alert("High drift detected!")
 ```
 
-Create a minimal SQLite table (one-time):
+## Data Quality
 
-```sql
-CREATE TABLE user_features (
-  user_id INTEGER NOT NULL,
-  event_ts TEXT NOT NULL,
-  country TEXT,
-  age INTEGER,
-  purchases_7d REAL,
-  PRIMARY KEY (user_id, event_ts)
-);
+```python
+from feature_store_api.quality import run_quality_checks
+
+# Run quality checks
+results = run_quality_checks(
+    data=df,
+    rules=[
+        {"column": "user_id", "check": "not_null"},
+        {"column": "age", "check": "between(0, 150)"},
+        {"column": "purchases", "check": ">= 0"}
+    ]
+)
+
+print(results.summary)
 ```
 
-Ingest + materialize + fetch:
+## Notebooks
 
-```bash
-curl -X POST http://localhost:8000/offline/ingest/user_features \
-  -H "content-type: application/json" \
-  -d '{"rows": [{"user_id": 123, "event_ts": "2026-02-01T00:00:00+00:00", "country": "FR", "age": 29, "purchases_7d": 3.0}]}'
-
-curl -X POST http://localhost:8000/materialize/user_features
-curl http://localhost:8000/online/user_features/123
-```
-
-## Design notes
-
-This is **not** a production feature store.
-It is a learning-oriented implementation inspired by Feast concepts:
-
-- registry (defs)
-- offline store
-- online store
-- materialization
-
-See `registry/feature_views.yaml`.
+- `notebooks/01_offline_feature_generation.ipynb` - Feature engineering
+- `notebooks/02_training_with_features.ipynb` - Model training
+- `notebooks/03_data_quality_and_leakage_checks.ipynb` - Quality & drift
 
 ## License
 
