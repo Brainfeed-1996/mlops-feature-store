@@ -1,0 +1,1 @@
+feat: add streaming (Kafka) and monitoring (metrics, drift detection) modules
