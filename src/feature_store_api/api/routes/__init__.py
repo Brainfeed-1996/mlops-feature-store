@@ -1,3 +1,3 @@
-from . import features, registry
+from . import features, offline, registry
 
-__all__ = ["features", "registry"]
+__all__ = ["features", "offline", "registry"]
