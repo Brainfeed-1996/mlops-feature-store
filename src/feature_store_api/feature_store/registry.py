@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -24,21 +23,27 @@ class Registry:
         return cls._instance
 
     def reload(self) -> None:
-        raw = yaml.safe_load(self.registry_path.read_text(encoding="utf-8"))
+        if not self.registry_path.exists():
+            raise FileNotFoundError(f"Registry file not found: {self.registry_path}")
+
+        raw = yaml.safe_load(self.registry_path.read_text(encoding="utf-8")) or {}
         fvs: list[FeatureView] = []
-        for fv in raw.get("feature_views", []):
-            entity = Entity(**fv["entity"])
-            offline = OfflineSource(**fv["offline"])
-            features = [Feature(**f) for f in fv["features"]]
-            fvs.append(
-                FeatureView(
-                    name=fv["name"],
-                    entity=entity,
-                    features=features,
-                    offline=offline,
-                    ttl_seconds=int(fv.get("ttl_seconds", 0)),
+        for idx, fv in enumerate(raw.get("feature_views", [])):
+            try:
+                entity = Entity(**fv["entity"])
+                offline = OfflineSource(**fv["offline"])
+                features = [Feature(**f) for f in fv["features"]]
+                fvs.append(
+                    FeatureView(
+                        name=fv["name"],
+                        entity=entity,
+                        features=features,
+                        offline=offline,
+                        ttl_seconds=int(fv.get("ttl_seconds", 0)),
+                    )
                 )
-            )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid feature_view at index {idx}: {fv}") from exc
         self.feature_views = fvs
 
     def get_feature_view(self, name: str) -> FeatureView | None:
